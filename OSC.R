@@ -14,9 +14,12 @@ indicator_matrix <- function(y){
   return(M)
 }
 
-OSC_tune <- function(X,y,ncomp=2){
+OSC_DO_tune <- function(X,y,ncomp=2){
   # Orthogonal Signal Correction from M. Padilla et al.
   # M. Padilla, A. Perera, I. Montoliu, et al. “Drift compensation of gas sensor array data by Orthogonal Signal Correction”. In: Chemometrics and Intelligent Laboratory Systems (Jan. 2010)
+  #
+  # There are multiple ways for performing OSC, here we implement the solution of C. A. Andersson, called Direct Orthogonalization (DO)
+  # C. A. Andersson, "Direct orthogonalization". In: Chemometrics and Intelligent Laboratory Systems (1999)
   #
   # Parameters
   # X: Multi-Session data matrix ((n_obs1 + ... + n_obsS) x n_sens)
@@ -25,47 +28,26 @@ OSC_tune <- function(X,y,ncomp=2){
   #
   # Return
   # ncomp drift latent directions
-  Y <- indicator_matrix(y)
-  W <- matrix(0, ncol = ncomp, nrow = ncol(X))
-  loadings <- matrix(0, ncol = ncomp, nrow = ncol(X))
-  nruns <- 100
+  #
+  # Useful references
+  # O. Svensson, T. Kourti and J. F. MacGregor, "An investigation of orthogonal signal correction algorithms and their characteristics". In: Journal of Chemometrics (2002)
   
-  for(n in 1:ncomp){
-    pca <- prcomp(X)
-    t <- pca$x[,1]
-    i <- 0
-    err <- 1
-    while(i < nruns & err > 1e-6){
-      t_old <- t
-      nt = (diag(rep(1,nrow(Y))) - Y %*% ginv(t(Y) %*% Y) %*% t(Y)) %*% t
-      w <- ginv(X) %*% nt
-      t <- X %*% w 
-      err <- (sqrt(sum((t-t_old)**2)) / sqrt(sum((t)**2)))
-      i <- i+1
-    }
-    p <- t(t(t) %*% X / as.numeric(t(t)%*%t))
-    loadings[,n] <- p
-    W[,n] <- w
-    X <- X - t %*% t(loadings[,n])
-  }
-  return(list(weights=W,loadings=loadings))
+  Y <- indicator_matrix(y)
+  Z <- X - Y %*% ginv(t(Y) %*% Y) %*% t(Y) %*% X
+  pca <- prcomp(Z)
+  return(as.matrix(pca$rotation[,1:ncomp], ncol=ncomp))
 }
 
-OSC_cor <- function(X,osc){
-  # Orthogonal Signal Correction from M. Padilla et al.
+OSC_DO_cor <- function(X,loadings){
+  # Orthogonal Signal Correction (OSC) from M. Padilla et al.
   # M. Padilla, A. Perera, I. Montoliu, et al. “Drift compensation of gas sensor array data by Orthogonal Signal Correction”. In: Chemometrics and Intelligent Laboratory Systems (Jan. 2010)
   #
   # Parameters
   # X: drift data matrix (n_obs x n_sens)
-  # osc: OSC object containing drift latent directions (n_sens x ncomp)
+  # loadings: n components for correction (n_sens x ncomp)
   #
   # Return
   # Drift corrected data matrix 
-  Xcor <- X
-  for(i in 1:ncol(osc$weights)){
-    scores <- Xcor %*% osc$weights[,i] 
-    Xcor <- Xcor - scores %*% t(osc$loadings[,i])
-  }
-  return(Xcor)
+  return(X%*%(diag(rep(1,ncol(X))) - loadings %*% t(loadings)))
 }
 ###########################
