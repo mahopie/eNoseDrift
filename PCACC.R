@@ -12,7 +12,7 @@ PCACC_tune <- function(X,ncomp=2){
   #
   # Parameters
   # X: Calibrant data matrix (n_obs x n_sens)
-  # ncomp: Number components to return
+  # ncomp: Number of components to return
   #
   # Return
   # ncomp drift directions
@@ -30,12 +30,6 @@ PCACC_cor <- function(X, loadings){
   #
   # Return
   # Drift corrected data matrix
-  Xcor <- X
-  ncomp <- ncol(loadings)
-  for(i in 1:ncomp){
-    t <- Xcor %*% loadings[,i]
-    Xcor <- Xcor - t%*% t(loadings[,i])
-  }
-  return(Xcor)
+  return(X%*%(diag(rep(1,ncol(X))) - loadings %*% t(loadings)))
 }
 ###########################
