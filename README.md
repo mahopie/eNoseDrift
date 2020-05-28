@@ -23,6 +23,6 @@ This repository includes 5 state of the art methods:
 
 *S. Di Carlo, M. Falasconi, E. Sanchez, et al. “Increasing pattern recognition accuracy for chemical sensing by evolutionary based drift compensation”. In: Pattern Recognition Letters (Oct. 2011)*
 
-For details about the methods, please read the cited papers or my PhD dissertation: [Available only after July 1 2020].
+For details about the methods, please read the cited papers or my PhD dissertation: [Available only after July 1 2021].
 
 A code with an artifical data set is also provided in order to test the implemented methods.
