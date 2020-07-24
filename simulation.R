@@ -1,202 +1,168 @@
-# Author: Pierre Maho
-# Lab: Gipsa-Lab
-# PhD Supervisors: Simon Barthelme and Pierre Comon
-# Date: 2020/01/12
-
-
-suppressMessages(library(ggplot2))
-suppressMessages(library(extrafont))
-suppressMessages(library(MASS))
-suppressMessages(library(tidyr))
-suppressMessages(library(dplyr))
-suppressMessages(library(e1071))
-suppressMessages(library(grid))
-suppressMessages(library(ggthemes))
-suppressMessages(loadfonts())
+library(mixtools)
+library(tidyr)
+library(e1071)
+library(MASS)
 source('PCACC.R')
-source('PLSCC.R')
+source('EMC2.R')
 source('OSC.R')
 source('CPCACC.R')
 source('EvolutionaryMethod.R')
+source('DRCA.R')
 
-# A function for nice plots
-theme_Publication <- function(base_size=10, base_family="LM Roman 10") {
-  # taken from https://rstudio-pubs-static.s3.amazonaws.com/71792_1acccaaf1b5b4fac88cb986da852c2df.html
-  (theme_foundation(base_size=base_size, base_family=base_family)
-    + theme(plot.title = element_text(face = "bold",size = rel(1.2), hjust = 0.5),
-            text = element_text(),
-            panel.background = element_rect(colour = NA),
-            plot.background = element_rect(colour = NA),
-            panel.border = element_rect(colour = "black", fill=NA),
-            axis.title = element_text(size = rel(1)),
-            axis.title.y = element_text(angle=90,vjust =2),
-            axis.title.x = element_text(vjust = -0.2),
-            axis.text = element_text(), 
-            axis.line = element_line(colour="black"),
-            axis.ticks = element_line(),
-            panel.grid.major = element_line(colour="#f0f0f0"),
-            panel.grid.minor = element_blank(),
-            legend.key = element_rect(colour = NA),
-            legend.position = "right",
-            legend.direction = "vertical",
-            legend.key.size= unit(1, "cm"),
-            legend.margin = unit(0.5, "cm"),
-            plot.margin=unit(c(10,5,5,5),"mm"),
-            strip.background=element_rect(colour="black",fill="#f0f0f0")))
-}
+P = 4 # number of chemical sensors
+R = 6 # number of compounds
+N1 = 60 # number of samples in Session 1 (in total)
 
-##### GENERATE ARTIFICIAL DATA SET
-# parameters
-P  <- 5# number of chemical sensors
-R  <- 5 # number of VOCs
-N  <- 30 # number of repetitions/session
-Ns <- 5 # number of session
+deltat = 8 # window size
+ts = 0:251 # experiment duration
+beta = 12 # hyperparemeter
+h = 30 # hyperparemeter
+Ntimes = 10 # number of simulations
+# Ntimes = 100
+cr_raw  = cr_emc2 = cr_diCarlo  = cr_pcacc = matrix(0,nrow=Ntimes,ncol=R-1) # classification rates
+Nwindow = length(ts)/(deltat+1) # number of windows (sessions)
+m = 1
+while(m<=Ntimes){
+  print(paste("SIMULATION",m))
+  centroids = rmvnorm(R,rep(0,P), diag(rep(1,P)) * beta**2/(2*P))
+  drift_direction = runif(P,-1,1)
+  drift_direction = drift_direction / sqrt(sum(drift_direction**2))
+  alpha = runif(R,0.5,3)
+  
+  # check the separation
+  dist_centroid = dist(centroids)
+  if(any(dist_centroid < beta/2)){
+    print("Simulation discarded")
+  }else{
+
+    for(K in 2:R){
+      print(K)
+      molToKeep = 1:K
+      
+      #### GENERATE SESSION 1
+      X1 <- NULL
+      for(r in 1:R){
+        X1 = rbind(X1,rmvnorm(N1/R, centroids[r,], diag(rep(1,P))))
+      }
+      y1 <- rep(1:R, each = N1/R)
+      
+      #### GENERATE DRIFTING SESSIONS
+      Xcont <- NULL
+      for(t in ts){
+        for(r in molToKeep){
+          Xcont = rbind(Xcont,rmvnorm(1, centroids[r,] + ((t*drift_direction)/(h) + t/(h)*sin(t/(h)*drift_direction)) * alpha[r]  , diag(rep(1,P))))
+        }
+      }
+      ycont <- rep(molToKeep, length(ts))
+      tall <- rep(ts, each = length(molToKeep))
+      
+      # plot
+      # Xn = rbind(X1,Xcont)
+      # pca = prcomp(Xn)
+      # df <- as.data.frame(Xn) %>% mutate(mol=c(y1,ycont),session = c(rep('Session 1', N1), rep('Session i', length(ts)*length(molToKeep))),pca1=pca$x[,1], pca2=pca$x[,2],pca3=pca$x[,3])
+      # print(ggplot() +
+      #   geom_point(data=filter(df,session=='Session i'),aes(V1, V2,col=as.factor(mol)),size=3,shape=0) +
+      #   geom_point(data=filter(df,session=='Session 1'),aes(V1, V2,fill=as.factor(mol)),col='black',size=6, shape=21) +
+      #   xlab("")+
+      #   ylab("")+
+      #   # scale_shape_manual("Data from",values=c(21, 0))+
+      #   theme_Publication(22) +
+      #   scale_colour_Publication("VOC") +
+      #   scale_fill_Publication("VOC") + guides(col=F, fill=F) +
+      #   theme(panel.background = element_rect(fill = "transparent"), plot.background = element_rect(fill = "transparent", color = NA)))
+      # # 
+      # ggsave(filename = "../../../../../../Publications/Journal/Drift/fig/simu_drift_raw.pdf", device = cairo_pdf(), width = 7, height = 5, bg='transparent')
+      # dev.off()
+      # Xn = rbind(X1,Xdiscont)
+      # pca = prcomp(Xn)
+      # df <- as.data.frame(Xn) %>% mutate(mol=c(y1,ydiscont),session = c(rep('Session 1', N1), rep('Session i', length(w)*length(molToKeep))),pca1=-pca$x[,1], pca2=pca$x[,2],pca3=pca$x[,3])
+      # df <- mutate(df, test = c('Session 1','Session i')[(t>10) + 1])
+      # ggplot(df,aes(pca1, pca2,col=as.factor(mol),shape=factor(session))) +
+      #   geom_point(size=4, alpha = 0.66) +
+      #   xlab("PC 1")+
+      #   ylab("PC 2")+
+      #   scale_shape_manual("Data from",values=c(16, 1))+
+      #   theme_Publication(25) +
+      #   scale_colour_Publication("VOC")
+      # ggsave(filename = "../../../../../../Manuscript/gfx/figures_chapter_drift/simu_final_discont.pdf", device = cairo_pdf(), width = 10, height = 8)
+      # dev.off()
+      
+      #### DRIFT CORRECTION WINDOW-BY-WINDOW
+      Ws = ts %>% matrix(ncol=deltat+1, byrow=T)
+      Xcont_cor <- Xcont_pcacc <- Xcont
+      cr_cont = cr_cont_diCarlo = numeric(nrow(Ws))
+      Minit = NULL
+      for(nw in 1:nrow(Ws)){
+        # print(paste('Di Carlo ', nw))
+        tmp = which(tall%in%Ws[nw,])
+
+        # EMC2
+        res_emc2 = EMC2(X1, y1, Xcont[tmp,])
+        Xcont_cor[tmp,] = res_emc2$Xc
+        cr_cont[nw] = mean(ycont[tmp] == res_emc2$class)
+        
+        # # Di Carlo method
+        res_diCarlo = evolutionaryBased_DiCarlo(X1, y1, Xcont[tmp,], Minit=Minit, optimMethod='optim')
+        cr_cont_diCarlo[nw] =  mean(ycont[tmp] == res_diCarlo$pred)
+        Minit = res_diCarlo$M
+      }
+      
+      #### DRIFT CORRECTION PCA-CC
+      Xcal <- rbind(X1[y1==1,],Xcont[ycont==1,])
+      pcacc <- PCACC_tune(Xcal, ncomp=NULL, varExp=0.8)
+      Xcont_pcacc = PCACC_cor(Xcont, pcacc)
+      
+      # Xn = rbind(X1,Xcont_cor)
+      # # Xn = rbind(X1,Xcont_pcacc)
+      # pca = prcomp(Xn)
+      # df <- as.data.frame(Xn) %>% mutate(mol=c(y1,ycont),session = c(rep('Session 1', N1), rep('Session i', length(ts)*length(molToKeep))),pca1=pca$x[,1], pca2=pca$x[,2],pca3=pca$x[,3])
+      # ggplot() +
+      #   geom_point(data=filter(df,session=='Session i'),aes(V1, V2,col=as.factor(mol)),size=3,shape=0) +
+      #   geom_point(data=filter(df,session=='Session 1'),aes(V1, V2,fill=as.factor(mol)),col='black',size=6, shape=21) +
+      #   xlab("")+
+      #   ylab("")+
+      #   # scale_shape_manual("Data from",values=c(21, 0))+
+      #   theme_Publication(22) +
+      #   scale_colour_Publication("VOC") +
+      #   scale_fill_Publication("VOC") + guides(col=F, fill=F) +
+      #   theme(panel.background = element_rect(fill = "transparent"), plot.background = element_rect(fill = "transparent", color = NA))
+      # 
+      # ggsave(filename = "../../../../../../Publications/Journal/Drift/fig/simu_drift_cor.pdf", device = cairo_pdf(), width = 5, height = 5, bg='transparent')
+      # dev.off()
 
 
-# Generate Artificial data set
-# Drift is a single translation vector
-# Each class is drifting along this direction but with a different weight
-mus <- replicate(R,runif(P,-15,15)) # class centroids
-Sig <- diag(rep(1,P)) # covariance matrix
-
-# Generate Artificial data set
-drift_direction  <- runif(P, 0, 20)
-drift_class      <- replicate(R,drift_direction)
-weight_class     <-  replicate(R,runif(Ns, 0, 1)) # coefficient alpha in PhD thesis (class weight of the drift)
-weight_class[1,] <- 0 # first session is not drifting
-
-Xs <- NULL # all session data
-for(i in 1:Ns){
-  Xi <- NULL
-  for(j in 1:R){
-    # drift_class[,j] <- drift_class[,j] + drift_direction * weight_class[i,j] # cumulate the drift
-    drift_class[,j] <- drift_class[,j] + drift_direction * 1 # cumulate the drift
-    Xi              <- rbind(Xi,mvrnorm(N, mus[,j] + drift_class[,j], Sig))  
+      # Xn = rbind(X1,Xdiscont_cor)
+      # Xn = rbind(X1,res_diCarlo$X2cor)
+      # Xn = rbind(X1,Xdiscont_pcacc)
+      # pca = prcomp(Xn)
+      # df <- as.data.frame(Xn) %>% mutate(mol=c(y1,ydiscont),session = c(rep('Session 1', N1), rep('Session i', length(w)*length(molToKeep))),pca1=pca$x[,1], pca2=pca$x[,2],pca3=pca$x[,3])
+      # ggplot(df,aes(pca1, pca2,col=as.factor(mol),shape=factor(session)),stroke=5) +
+      #   geom_point(size=4, alpha = 0.66) +
+      #   xlab("PC 1")+
+      #   ylab("PC 2")+
+      #   scale_shape_manual("Data from",values=c(16, 1))+
+      #   theme_Publication(25) +
+      #   scale_colour_Publication("VOC")
+      # # ggsave(filename = "../../../../../../Manuscript/gfx/figures_chapter_drift/simu_final_discont_cor.pdf", device = cairo_pdf(), width = 10, height = 8)
+      # # dev.off()
+      
+      # Raw method
+      svm_tune <- tune(svm, train.x=X1, train.y=factor(y1), kernel='linear', scale = F, ranges=list(cost=c(10^(-5:5))))
+      predRaw <- predict(svm_tune$best.model, Xcont) %>% as.numeric
+      cr_raw[m,K-1] = mean(predRaw == ycont)
+      
+      predPCACC <- predict(svm_tune$best.model, Xcont_pcacc) %>% as.numeric
+      cr_pcacc[m,K-1] = mean(predPCACC == ycont)
+      
+      cr_emc2[m,K-1] = mean(cr_cont)
+      cr_diCarlo[m,K-1] = mean(cr_cont_diCarlo)
+    }
+    
+    # save results just in case
+    # saveRDS(cr_raw, "classRate_raw.rds") 
+    # saveRDS(cr_emc2, "classRate_EMC2.rds")
+    # saveRDS(cr_diCarlo, "classRate_diCarlo.rds")
+    # saveRDS(cr_pcacc, "classRate_PCACC.rds")
+    m = m + 1
   }
-  Xs <- rbind(Xs,Xi)
 }
-mols     <- rep(rep(1:R, each = N), Ns)
-sessions <-  rep(1:Ns, each = N*R)
-
-# Plot the artificial data set
-pca_session1 <- prcomp(Xs[sessions==1,])
-df           <- data.frame(Xs, mol = mols, session = sessions) %>% cbind(Xs%*%pca_session1$rotation[,1:5])
-ggplot(df,aes(PC1, PC2,col=as.factor(mol),shape=as.factor(session))) + 
-  geom_point() + 
-  xlab("Principal direction 1 of Session 1")+
-  ylab("Principal direction 2 of Session 1")+
-  ggtitle("Raw data") +
-  scale_color_discrete("VOC")+
-  scale_shape_manual("Session",values=c(1, 17,4,5,8, 7, 13,16,3,9,15))+
-  theme_Publication(12)
-
-
-#### CALIBRANT SCENARIO
-# Correct with PCA-CC
-Xcal         <- Xs[mols==1,] # calibrant matrix
-pcacc        <- PCACC_tune(Xcal, ncomp=1) 
-Xcor         <- PCACC_cor(Xs, pcacc)
-pca_session1 <- prcomp(Xcor[sessions==1,])
-df           <- data.frame(Xcor, mol = mols, session = sessions) %>% cbind(Xcor%*%pca_session1$rotation[,1:5])
-ggplot(df,aes(PC1, PC2,col=as.factor(mol),shape=as.factor(session))) + 
-  geom_point() + 
-  xlab("Principal direction 1 of Session 1")+
-  ylab("Principal direction 2 of Session 1")+
-  ggtitle("PCA-CC") +
-  scale_color_discrete("VOC")+
-  scale_shape_manual("Session",values=c(1, 17,4,5,8, 7, 13,16,3,9,15))+
-  theme_Publication(12)
-
-# Correct with PLS-CC
-Xcal         <- Xs[mols==1,] # calibrant matrix
-ycal         <- 1:nrow(Xcal) 
-plscc        <- PLSCC_tune(Xcal, ycal, ncomp=1) 
-Xcor         <- PLSCC_cor(Xs, plscc)
-pca_session1 <- prcomp(Xcor[sessions==1,])
-df           <- data.frame(Xcor, mol = mols, session = sessions) %>% cbind(Xcor%*%pca_session1$rotation[,1:5])
-ggplot(df,aes(PC1, PC2,col=as.factor(mol),shape=as.factor(session))) + 
-  geom_point() + 
-  xlab("Principal direction 1 of Session 1")+
-  ylab("Principal direction 2 of Session 1")+
-  ggtitle("PLS-CC") +
-  scale_color_discrete("VOC")+
-  scale_shape_manual("Session",values=c(1, 17,4,5,8, 7, 13,16,3,9,15))+
-  theme_Publication(12)
-
-
-#### MULTI SESSION SCENARIO
-# Correct with OSC
-Xtrain       <- Xs[sessions %in% 1:2,]
-ytrain       <- mols[sessions %in% 1:2]
-# osc          <- OSC_tune(Xtrain,ytrain,ncomp=1)
-# Xcor         <- OSC_cor(Xs,osc)
-osc          <- OSC_DO_tune(Xtrain,ytrain,ncomp=1)
-Xcor         <- OSC_DO_cor(Xs,osc)
-pca_session1 <- prcomp(Xcor[sessions==1,])
-df           <- data.frame(Xcor, mol = mols, session = sessions) %>% cbind(Xcor%*%pca_session1$rotation[,1:5])
-ggplot(df,aes(PC1, PC2,col=as.factor(mol),shape=as.factor(session))) + 
-  geom_point() + 
-  xlab("Principal direction 1 of Session 1")+
-  ylab("Principal direction 2 of Session 1")+
-  ggtitle("OSC") +
-  scale_color_discrete("VOC")+
-  scale_shape_manual("Session",values=c(1, 17,4,5,8, 7, 13,16,3,9,15))+
-  theme_Publication(12)
-
-# Correct with CPCA
-Xtrain       <- Xs[sessions %in% 1:2,]
-ytrain       <- mols[sessions %in% 1:2]
-cpca         <- CPCA_tune(Xtrain,ytrain,ncomp=1)
-Xcor         <- CPCA_cor(Xs,cpca)
-pca_session1 <- prcomp(Xcor[sessions==1,])
-df           <- data.frame(Xcor, mol = mols, session = sessions) %>% cbind(Xcor%*%pca_session1$rotation[,1:5])
-ggplot(df,aes(PC1, PC2,col=as.factor(mol),shape=as.factor(session))) + 
-  geom_point() + 
-  xlab("Principal direction 1 of Session 1")+
-  ylab("Principal direction 2 of Session 1")+
-  ggtitle("CPCA") +
-  scale_color_discrete("VOC")+
-  scale_shape_manual("Session",values=c(1, 17,4,5,8, 7, 13,16,3,9,15))+
-  theme_Publication(12)
-
-
-
-
-#### BLIND SCENARIO
-# Correct with the method of Di Carlo et al (CMA-ES)
-# The method is a bit long so just test on Session 1 and 2, and with a different kind of drift (appropriate for the drift correction method
-# We do not use CMA-ES as proposed by the authors. This method is quite long while BFGS method is much faster and gives similar results. However, we can try CMA-ES bty setting optimMethod to 'cmaes'
-Xtrain <- Xs[sessions == 1,]
-ytrain <- mols[sessions == 1]
-Mgt <- runif(P*P,0,0.1) %>% matrix(ncol = ncol(Xs), nrow = ncol(Xs))
-diag(Mgt) <- 1
-Xtest <- Xtrain %*% Mgt
-
-Xnew <- rbind(Xtrain, Xtest)
-pca_session1 <- prcomp(Xnew[which(sessions==1),])
-df           <- data.frame(Xnew, mol = mols[sessions%in%1:2], session = sessions[sessions%in%1:2]) %>%
-  cbind(Xnew%*%pca_session1$rotation[,1:5])
-ggplot(df,aes(PC1, PC2,col=as.factor(mol),shape=as.factor(session))) + 
-  geom_point() + 
-  xlab("Principal direction 1 of Session 1")+
-  ylab("Principal direction 2 of Session 1")+
-  ggtitle("New raw data (for Di Carlo's method)") +
-  scale_color_discrete("VOC")+
-  scale_shape_manual("Session",values=c(1, 17,4,5,8, 7, 13,16,3,9,15))+
-  theme_Publication(12)
-
-res_diCarlo <- evolutionaryBased_DiCarlo(Xtrain, ytrain, Xtest, optimMethod='optim')
-Xnew_cor <- rbind(Xtrain, res_diCarlo$X2cor)
-pca_session1 <- prcomp(Xnew_cor[which(sessions==1),])
-df           <- data.frame(Xnew_cor, mol = mols[sessions%in%1:2], session = sessions[sessions%in%1:2]) %>%
-  cbind(Xnew_cor%*%pca_session1$rotation[,1:5])
-ggplot(df,aes(PC1, PC2,col=as.factor(mol),shape=as.factor(session))) + 
-  geom_point() + 
-  xlab("Principal direction 1 of Session 1")+
-  ylab("Principal direction 2 of Session 1")+
-  ggtitle("Di Carlo's method") +
-  scale_color_discrete("VOC")+
-  scale_shape_manual("Session",values=c(1, 17,4,5,8, 7, 13,16,3,9,15))+
-  theme_Publication(12)
-
-
