@@ -32,14 +32,6 @@ PLSCC_cor <- function(X,pls,ncomp=2){
   #
   # Return
   # Corrected data matrix
-  # Xcor <- X
-  # ncomp <- ncol(pls$loadings)
-  # for(i in 1:ncomp){
-  #   wd <- matrix(pls$weights[,i])
-  #   pd <- matrix(pls$loadings[,i])
-  #   td <- Xcor %*% wd %*% ginv(t(pd) %*% wd)
-  #   Xcor <- Xcor - td %*% t(pd)
-  # }
   return(X%*%(diag(rep(1,ncol(X))) - pls$weights %*% ginv(t(pls$loadings)%*%pls$weights) %*% t(pls$loadings)))
 }
 ###########################
