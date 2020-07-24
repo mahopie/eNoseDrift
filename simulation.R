@@ -7,7 +7,6 @@ source('EMC2.R')
 source('OSC.R')
 source('CPCACC.R')
 source('EvolutionaryMethod.R')
-source('DRCA.R')
 
 P = 4 # number of chemical sensors
 R = 6 # number of compounds
