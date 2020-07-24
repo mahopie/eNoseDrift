@@ -19,7 +19,7 @@ This repository includes 5 drift correction methods:
 
 *S. Di Carlo, M. Falasconi, E. Sanchez, et al. “Increasing pattern recognition accuracy for chemical sensing by evolutionary based drift compensation”. In: Pattern Recognition Letters (Oct. 2011)*
 
-- EMC^2 from Maho et al.
+- EMC<sup>2</sup> from Maho et al.
 
 *P. Maho, C. Herrier, T. Livache, et al. “A calibrant-free drift compensation method for chemical sensor array: Expectation-Maximization Component Correction”. To appear*
 
