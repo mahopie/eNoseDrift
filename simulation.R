@@ -55,37 +55,6 @@ while(m<=Ntimes){
       ycont <- rep(molToKeep, length(ts))
       tall <- rep(ts, each = length(molToKeep))
       
-      # plot
-      # Xn = rbind(X1,Xcont)
-      # pca = prcomp(Xn)
-      # df <- as.data.frame(Xn) %>% mutate(mol=c(y1,ycont),session = c(rep('Session 1', N1), rep('Session i', length(ts)*length(molToKeep))),pca1=pca$x[,1], pca2=pca$x[,2],pca3=pca$x[,3])
-      # print(ggplot() +
-      #   geom_point(data=filter(df,session=='Session i'),aes(V1, V2,col=as.factor(mol)),size=3,shape=0) +
-      #   geom_point(data=filter(df,session=='Session 1'),aes(V1, V2,fill=as.factor(mol)),col='black',size=6, shape=21) +
-      #   xlab("")+
-      #   ylab("")+
-      #   # scale_shape_manual("Data from",values=c(21, 0))+
-      #   theme_Publication(22) +
-      #   scale_colour_Publication("VOC") +
-      #   scale_fill_Publication("VOC") + guides(col=F, fill=F) +
-      #   theme(panel.background = element_rect(fill = "transparent"), plot.background = element_rect(fill = "transparent", color = NA)))
-      # # 
-      # ggsave(filename = "../../../../../../Publications/Journal/Drift/fig/simu_drift_raw.pdf", device = cairo_pdf(), width = 7, height = 5, bg='transparent')
-      # dev.off()
-      # Xn = rbind(X1,Xdiscont)
-      # pca = prcomp(Xn)
-      # df <- as.data.frame(Xn) %>% mutate(mol=c(y1,ydiscont),session = c(rep('Session 1', N1), rep('Session i', length(w)*length(molToKeep))),pca1=-pca$x[,1], pca2=pca$x[,2],pca3=pca$x[,3])
-      # df <- mutate(df, test = c('Session 1','Session i')[(t>10) + 1])
-      # ggplot(df,aes(pca1, pca2,col=as.factor(mol),shape=factor(session))) +
-      #   geom_point(size=4, alpha = 0.66) +
-      #   xlab("PC 1")+
-      #   ylab("PC 2")+
-      #   scale_shape_manual("Data from",values=c(16, 1))+
-      #   theme_Publication(25) +
-      #   scale_colour_Publication("VOC")
-      # ggsave(filename = "../../../../../../Manuscript/gfx/figures_chapter_drift/simu_final_discont.pdf", device = cairo_pdf(), width = 10, height = 8)
-      # dev.off()
-      
       #### DRIFT CORRECTION WINDOW-BY-WINDOW
       Ws = ts %>% matrix(ncol=deltat+1, byrow=T)
       Xcont_cor <- Xcont_pcacc <- Xcont
@@ -110,40 +79,6 @@ while(m<=Ntimes){
       Xcal <- rbind(X1[y1==1,],Xcont[ycont==1,])
       pcacc <- PCACC_tune(Xcal, ncomp=NULL, varExp=0.8)
       Xcont_pcacc = PCACC_cor(Xcont, pcacc)
-      
-      # Xn = rbind(X1,Xcont_cor)
-      # # Xn = rbind(X1,Xcont_pcacc)
-      # pca = prcomp(Xn)
-      # df <- as.data.frame(Xn) %>% mutate(mol=c(y1,ycont),session = c(rep('Session 1', N1), rep('Session i', length(ts)*length(molToKeep))),pca1=pca$x[,1], pca2=pca$x[,2],pca3=pca$x[,3])
-      # ggplot() +
-      #   geom_point(data=filter(df,session=='Session i'),aes(V1, V2,col=as.factor(mol)),size=3,shape=0) +
-      #   geom_point(data=filter(df,session=='Session 1'),aes(V1, V2,fill=as.factor(mol)),col='black',size=6, shape=21) +
-      #   xlab("")+
-      #   ylab("")+
-      #   # scale_shape_manual("Data from",values=c(21, 0))+
-      #   theme_Publication(22) +
-      #   scale_colour_Publication("VOC") +
-      #   scale_fill_Publication("VOC") + guides(col=F, fill=F) +
-      #   theme(panel.background = element_rect(fill = "transparent"), plot.background = element_rect(fill = "transparent", color = NA))
-      # 
-      # ggsave(filename = "../../../../../../Publications/Journal/Drift/fig/simu_drift_cor.pdf", device = cairo_pdf(), width = 5, height = 5, bg='transparent')
-      # dev.off()
-
-
-      # Xn = rbind(X1,Xdiscont_cor)
-      # Xn = rbind(X1,res_diCarlo$X2cor)
-      # Xn = rbind(X1,Xdiscont_pcacc)
-      # pca = prcomp(Xn)
-      # df <- as.data.frame(Xn) %>% mutate(mol=c(y1,ydiscont),session = c(rep('Session 1', N1), rep('Session i', length(w)*length(molToKeep))),pca1=pca$x[,1], pca2=pca$x[,2],pca3=pca$x[,3])
-      # ggplot(df,aes(pca1, pca2,col=as.factor(mol),shape=factor(session)),stroke=5) +
-      #   geom_point(size=4, alpha = 0.66) +
-      #   xlab("PC 1")+
-      #   ylab("PC 2")+
-      #   scale_shape_manual("Data from",values=c(16, 1))+
-      #   theme_Publication(25) +
-      #   scale_colour_Publication("VOC")
-      # # ggsave(filename = "../../../../../../Manuscript/gfx/figures_chapter_drift/simu_final_discont_cor.pdf", device = cairo_pdf(), width = 10, height = 8)
-      # # dev.off()
       
       # Raw method
       svm_tune <- tune(svm, train.x=X1, train.y=factor(y1), kernel='linear', scale = F, ranges=list(cost=c(10^(-5:5))))
