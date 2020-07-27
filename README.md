@@ -21,7 +21,7 @@ This repository includes 5 drift correction methods:
 
 - EMC<sup>2</sup> from Maho et al.
 
-*P. Maho, C. Herrier, T. Livache, et al. “A calibrant-free drift compensation method for chemical sensor arrays: Expectation-Maximization Component Correction”. To appear*
+*P. Maho, C. Herrier, T. Livache, et al. “A calibrant-free drift compensation method for chemical sensor arrays: Expectation-Maximisation Component Correction”. To appear*
 
 For details about the methods, please read the cited papers or my PhD dissertation: [Available only after July 1 2021].
 
